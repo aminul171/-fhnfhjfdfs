@@ -92,18 +92,18 @@
   </form>
 
   <h1>Delete JSON Data</h1>
-  <form id="deleteForm">
+  <form id="deleteForm" action="/delete" method="POST">
     <label for="deletePhoneNumber">Phone Number to Delete:</label><br>
-    <input type="text" id="deletePhoneNumber" name="deletePhoneNumber" required><br>
+    <input type="text" id="deletePhoneNumber" name="phoneNumber" required><br>
 
-    <label for="deleteFileSelect">Select File to Delete From:</label><br>
-    <select id="deleteFileSelect" name="deleteFileSelect">
-       <option value="admins.json">HOME</option>
-      <option value="ad.json">MAIN ADMIN</option>
-      <option value="cs.json">CUSTOMER SUPPORT</option>
-      <option value="sa.json">SUPER ADMIN</option>
-      <option value="sag.json">SUPER AGENT</option>
-      <option value="mag.json">MASTER AGENT</option>
+    <label for="deleteType">Select Type to Delete From:</label><br>
+    <select id="deleteType" name="type" required>
+      <option value="MAIN ADMIN">MAIN ADMIN</option>
+      <option value="ADMIN">ADMIN</option>
+      <option value="CUSTOMER SUPPORT">CUSTOMER SUPPORT</option>
+      <option value="SUPER ADMIN">SUPER ADMIN</option>
+      <option value="SUPER AGENT">SUPER AGENT</option>
+      <option value="MASTER AGENT">MASTER AGENT</option>
     </select><br><br>
 
     <button type="submit">Delete Data</button>
@@ -142,31 +142,7 @@
       }
     });
 
-    document.getElementById('deleteForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const deletePhoneNumber = document.getElementById('deletePhoneNumber').value;
-      const deleteSelectedFile = document.getElementById('deleteFileSelect').value;
-
-      const deleteData = {
-        phoneNumber: deletePhoneNumber
-      };
-
-      try {
-        const response = await fetch('/delete', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ data: deleteData, fileName: deleteSelectedFile })
-        });
-
-        const data = await response.json();
-        showMessage(data.message, data.error ? 'error' : 'success');
-      } catch (error) {
-        console.error('Error:', error);
-        showMessage('An error occurred. Please try again.', 'error');
-      }
-    });
+    
 
     function showMessage(message, type) {
       const messageDiv = document.getElementById('message');
@@ -179,5 +155,6 @@
       }, 3000);
     }
   </script>
+
 </body>
 </html>

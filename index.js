@@ -1,169 +1,222 @@
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
-
+const mongoose = require('mongoose');
+const fs = require('fs')
 const app = express();
 const PORT = process.env.PORT || 3000;
+const mongoURI = 'mongodb+srv://aminuljisam876:nCtLDSYbtyiQ5Xta@cluster0.ja3hxsd.mongodb.net/File';
 
-// Set static folder
+
+mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('Error connecting to MongoDB', err));
+
+
+
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+//static folder
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Define a route to serve the index.html file
-app.get('/', (req, res) => {
-  // Read users.json file
-  fs.readFile(path.join(__dirname, 'admins.json'), 'utf8', (err, data) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send('Error reading JSON file');
+// Function to generate WhatsApp link
+function createWhatsAppLink(phoneNumber) {
+  return `https://api.whatsapp.com/send?phone=${phoneNumber}`;
+}
+
+// Route to serve the admin.html file
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+// Route to fetch users from MongoDB
+app.get('/users', async (req, res) => {
+  try {
+    const users = await User.find({});
+    res.json(users);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error reading users from MongoDB');
+  }
+});
+
+// Route to add a new user to MongoDB
+app.post('/add', async (req, res) => {
+  const { data } = req.body;
+
+  if (!data) {
+    return res.status(400).json({ message: 'Data is required' });
+  }
+
+  const { type, name, phoneNumber } = data;
+
+  if (!type || !name || !phoneNumber) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+
+  const phoneAppLink = createWhatsAppLink(phoneNumber); // Generate WhatsApp link
+
+  try {
+    const newUser = new User({
+      type,
+      name,
+      phoneNumber
+    });
+
+    const savedUser = await newUser.save();
+    res.json({ message: 'Data added successfully', newData: savedUser });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error adding data to MongoDB' });
+  }
+});
+
+// Route to delete a user from MongoDB
+// Route to delete a user from MongoDB based on phone number and type
+app.post('/delete', async (req, res) => {
+  const { phoneNumber, type } = req.body;
+
+  if (!phoneNumber || !type) {
+    return res.status(400).send('Phone number and type are required for deletion');
+  }
+
+  try {
+    // Assuming you have a mongoose model called User
+    const userToDelete = await User.findOneAndDelete({ phoneNumber, type });
+
+    if (!userToDelete) {
+      return res.status(404).send('User not found');
     }
 
-    const users = JSON.parse(data);
-
-    // Read sa.html file
-    fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, html) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).send('Error reading HTML file');
-      }
-
-      // Replace placeholders in HTML with user data
-      const modifiedHtml = html.replace('<!-- USERS_DATA -->', generateTableRows(users));
-
-      // Send the modified HTML to the client
-      res.send(modifiedHtml);
-    });
-  });
+    // Render a success message
+    res.status(200).send(`
+      <h2>User deleted successfully</h2>
+      <p>Deleted user with phone number: ${userToDelete.phoneNumber} and type: ${userToDelete.type}</p>
+      <a href="/">Go Back</a>
+    `);
+  } catch (err) {
+    console.error(err);
+    // Render an error message
+    res.status(500).send('Error deleting user from MongoDB');
+  }
 });
 
 
-app.get('/sa', (req, res) => {
-  // Read users.json file
-  fs.readFile(path.join(__dirname, 'sa.json'), 'utf8', (err, data) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send('Error reading JSON file');
-    }
 
-    const users = JSON.parse(data);
+// Create a Mongoose Schema for the admins collection
 
-    // Read sa.html file
-    fs.readFile(path.join(__dirname, 'public', 'sa.html'), 'utf8', (err, html) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).send('Error reading HTML file');
-      }
+// Create a Mongoose Schema for the cs collection
+// Create a Mongoose Schema for the users collection
+const userSchema = new mongoose.Schema({
+  type: String,
+  name: String,
+  phoneNumber: String
+}, { collection: 'users' }); // Specify the collection name for users
 
-      // Replace placeholders in HTML with user data
-      const modifiedHtml = html.replace('<!-- USERS_DATA -->', generateTableRows(users));
+// Create a Mongoose Model for users
+const User = mongoose.model('User', userSchema);
 
-      // Send the modified HTML to the client
-      res.send(modifiedHtml);
-    });
-  });
+
+// Route to fetch users of type "admin" from MongoDB users collection
+app.get('/', async (req, res) => {
+  try {
+    const admins = await User.find({ type: 'MAIN ADMIN' }); // Fetch all users of type "admin"
+    const html = await fs.promises.readFile(path.join(__dirname, 'index.html'), 'utf8');
+
+    // Replace placeholders in HTML with admin data
+    const modifiedHtml = html.replace('<!-- USERS_DATA -->', generateTableRows(admins));
+
+    // Send the modified HTML to the client
+    res.send(modifiedHtml);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error reading admin users from MongoDB or HTML file');
+  }
 });
 
-app.get('/cs', (req, res) => {
-  // Read users.json file
-  fs.readFile(path.join(__dirname, 'cs.json'), 'utf8', (err, data) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send('Error reading JSON file');
-    }
+// Route to fetch users of type "sa" from MongoDB users collection
+app.get('/sa', async (req, res) => {
+  try {
+    const admins = await User.find({ type: 'SUPER ADMIN' }); // Fetch all users of type "admin"
+    const html = await fs.promises.readFile(path.join(__dirname, 'public', 'sa.html'), 'utf8');
 
-    const users = JSON.parse(data);
+    // Replace placeholders in HTML with admin data
+    const modifiedHtml = html.replace('<!-- USERS_DATA -->', generateTableRows(admins));
 
-    // Read sa.html file
-    fs.readFile(path.join(__dirname, 'public', 'cs.html'), 'utf8', (err, html) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).send('Error reading HTML file');
-      }
-
-      // Replace placeholders in HTML with user data
-      const modifiedHtml = html.replace('<!-- USERS_DATA -->', generateTableRows(users));
-
-      // Send the modified HTML to the client
-      res.send(modifiedHtml);
-    });
-  });
-});
-app.get('/ad', (req, res) => {
-  // Read users.json file
-  fs.readFile(path.join(__dirname, 'ad.json'), 'utf8', (err, data) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send('Error reading JSON file');
-    }
-
-    const users = JSON.parse(data);
-
-    // Read sa.html file
-    fs.readFile(path.join(__dirname, 'public', 'ad.html'), 'utf8', (err, html) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).send('Error reading HTML file');
-      }
-
-      // Replace placeholders in HTML with user data
-      const modifiedHtml = html.replace('<!-- USERS_DATA -->', generateTableRows(users));
-
-      // Send the modified HTML to the client
-      res.send(modifiedHtml);
-    });
-  });
+    // Send the modified HTML to the client
+    res.send(modifiedHtml);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error reading admin users from MongoDB or HTML file');
+  }
 });
 
-app.get('/sag', (req, res) => {
-  // Read users.json file
-  fs.readFile(path.join(__dirname, 'sag.json'), 'utf8', (err, data) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send('Error reading JSON file');
-    }
+// Route to fetch users of type "cs" from MongoDB users collection
+app.get('/cs', async (req, res) => {
+  try {
+    const admins = await User.find({ type: 'CUSTOMER SUPPORT' }); // Fetch all users of type "admin"
+    const html = await fs.promises.readFile(path.join(__dirname, 'public', 'cs.html'), 'utf8');
 
-    const users = JSON.parse(data);
+    // Replace placeholders in HTML with admin data
+    const modifiedHtml = html.replace('<!-- USERS_DATA -->', generateTableRows(admins));
 
-    // Read sa.html file
-    fs.readFile(path.join(__dirname, 'public', 'sag.html'), 'utf8', (err, html) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).send('Error reading HTML file');
-      }
-
-      // Replace placeholders in HTML with user data
-      const modifiedHtml = html.replace('<!-- USERS_DATA -->', generateTableRows(users));
-
-      // Send the modified HTML to the client
-      res.send(modifiedHtml);
-    });
-  });
+    // Send the modified HTML to the client
+    res.send(modifiedHtml);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error reading admin users from MongoDB or HTML file');
+  }
 });
-app.get('/ma', (req, res) => {
-  // Read users.json file
-  fs.readFile(path.join(__dirname, 'mag.json'), 'utf8', (err, data) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send('Error reading JSON file');
-    }
 
-    const users = JSON.parse(data);
+app.get('/ad', async (req, res) => {
+  try {
+    const admins = await User.find({ type: 'ADMIN' }); // Fetch all users of type "admin"
+    const html = await fs.promises.readFile(path.join(__dirname, 'public', 'ad.html'), 'utf8');
 
-    // Read sa.html file
-    fs.readFile(path.join(__dirname, 'public', 'mag.html'), 'utf8', (err, html) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).send('Error reading HTML file');
-      }
+    // Replace placeholders in HTML with admin data
+    const modifiedHtml = html.replace('<!-- USERS_DATA -->', generateTableRows(admins));
 
-      // Replace placeholders in HTML with user data
-      const modifiedHtml = html.replace('<!-- USERS_DATA -->', generateTableRows(users));
-
-      // Send the modified HTML to the client
-      res.send(modifiedHtml);
-    });
-  });
+    // Send the modified HTML to the client
+    res.send(modifiedHtml);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error reading admin users from MongoDB or HTML file');
+  }
 });
-// Function to generate table rows from user data
+
+app.get('/sag', async (req, res) => {
+  try {
+    const admins = await User.find({ type: 'SUPER AGENT' }); // Fetch all users of type "admin"
+    const html = await fs.promises.readFile(path.join(__dirname, 'public', 'sag.html'), 'utf8');
+
+    // Replace placeholders in HTML with admin data
+    const modifiedHtml = html.replace('<!-- USERS_DATA -->', generateTableRows(admins));
+
+    // Send the modified HTML to the client
+    res.send(modifiedHtml);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error reading admin users from MongoDB or HTML file');
+  }
+});
+
+app.get('/ma', async (req, res) => {
+  try {
+    const admins = await User.find({ type: 'MASTER AGENT' }); // Fetch all users of type "admin"
+    const html = await fs.promises.readFile(path.join(__dirname, 'public', 'mag.html'), 'utf8');
+
+    // Replace placeholders in HTML with admin data
+    const modifiedHtml = html.replace('<!-- USERS_DATA -->', generateTableRows(admins));
+
+    // Send the modified HTML to the client
+    res.send(modifiedHtml);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Error reading admin users from MongoDB or HTML file');
+  }
+});
+
 function generateTableRows(users) {
   let rows = '';
   users.forEach(user => {
@@ -178,109 +231,8 @@ function generateTableRows(users) {
   });
   return rows;
 }
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'admin.html'));
-});
-app.get('/users', (req, res) => {
-  fs.readFile(path.join(__dirname, 'admins.json'), 'utf8', (err, data) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send('Error reading JSON file');
-    }
-    const users = JSON.parse(data);
-    res.json(users);
-  });
-});
 
-// Define a route to handle form submission and add a new user
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-const jsonFilesDir = path.join(__dirname);
-
-const readJsonFile = (fileName) => {
-  try {
-    const filePath = path.join(jsonFilesDir, fileName);
-    const data = fs.readFileSync(filePath, 'utf8');
-    return JSON.parse(data);
-  } catch (error) {
-    console.error('Error reading file:', error);
-    return [];
-  }
-};
-
-const writeJsonFile = (fileName, data) => {
-  try {
-    const filePath = path.join(jsonFilesDir, fileName);
-    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
-  } catch (error) {
-    console.error('Error writing to file:', error);
-  }
-};
-
-
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// Define createWhatsAppLink function
-function createWhatsAppLink(phoneNumber) {
-  return `https://api.whatsapp.com/send?phone=${phoneNumber}`;
-}
-
-// Your existing /add route
-app.post('/add', (req, res) => {
-  const { data, fileName } = req.body;
-
-  if (!data || !fileName) {
-    return res.status(400).json({ message: 'Data and file name are required' });
-  }
-
-  const { type, name, phoneNumber } = data;
-
-  if (!type || !name || !phoneNumber) {
-    return res.status(400).json({ message: 'All fields are required' });
-  }
-
-  const phoneAppLink = createWhatsAppLink(phoneNumber); // Generate WhatsApp link
-
-  const newEntry = {
-    type,
-    name,
-    phoneAppLink,
-    phoneNumber
-  };
-
-  const jsonData = readJsonFile(fileName);
-  jsonData.push(newEntry);
-  writeJsonFile(fileName, jsonData);
-
-  res.json({ message: 'Data added successfully', newData: newEntry });
-});
-
-app.post('/delete', (req, res) => {
-  const { data, fileName } = req.body;
-
-  if (!data || !fileName) {
-    return res.status(400).json({ message: 'Data and file name are required' });
-  }
-
-  const { phoneNumber } = data;
-
-  if (!phoneNumber) {
-    return res.status(400).json({ message: 'Phone number is required for deletion' });
-  }
-
-  let jsonData = readJsonFile(fileName);
-
-  const newData = jsonData.filter(entry => entry.phoneNumber !== phoneNumber);
-
-  writeJsonFile(fileName, newData);
-
-  res.json({ message: 'Data deleted successfully' });
-});
-
+// Start the server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });

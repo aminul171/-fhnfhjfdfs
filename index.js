@@ -38,7 +38,7 @@ app.get('/', (req, res) => {
 
 app.get('/sa', (req, res) => {
   // Read users.json file
-  fs.readFile(path.join(__dirname, 'users.json'), 'utf8', (err, data) => {
+  fs.readFile(path.join(__dirname, 'sa.json'), 'utf8', (err, data) => {
     if (err) {
       console.error(err);
       return res.status(500).send('Error reading JSON file');
@@ -219,14 +219,17 @@ const writeJsonFile = (fileName, data) => {
   }
 };
 
-const createWhatsAppLink = (phoneNumber) => {
-  return `https://wa.me/${phoneNumber.replace(/\D/g, '')}`;
-};
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Define createWhatsAppLink function
+function createWhatsAppLink(phoneNumber) {
+  return `https://api.whatsapp.com/send?phone=${phoneNumber}`;
+}
+
+// Your existing /add route
 app.post('/add', (req, res) => {
   const { data, fileName } = req.body;
 
@@ -240,7 +243,7 @@ app.post('/add', (req, res) => {
     return res.status(400).json({ message: 'All fields are required' });
   }
 
-  const phoneAppLink = createWhatsAppLink(phoneNumber);
+  const phoneAppLink = createWhatsAppLink(phoneNumber); // Generate WhatsApp link
 
   const newEntry = {
     type,

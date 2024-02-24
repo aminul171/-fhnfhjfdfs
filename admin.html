@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Add/Delete JSON Data</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+      margin: 20px;
+    }
+
+    h1 {
+      color: #333;
+    }
+
+    form {
+      max-width: 400px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 15px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    button {
+      background-color: #007bff;
+      color: #fff;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #0056b3;
+    }
+
+    .message {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 4px;
+    }
+
+    .success {
+      background-color: #28a745;
+      color: #fff;
+    }
+
+    .error {
+      background-color: #dc3545;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <h1>Add/Delete JSON Data</h1>
+  <form id="jsonForm">
+    <label for="name">Name:</label><br>
+    <input type="text" id="name" name="name" required><br>
+
+    <label for="phoneNumber">Phone Number:</label><br>
+    <input type="text" id="phoneNumber" name="phoneNumber" required><br>
+
+    <label for="fileAndTypeSelect">Select Type and File:</label><br>
+    <select id="fileAndTypeSelect" name="fileAndTypeSelect">
+      <option value="ADMIN|ad.json">ADMIN</option>
+      <option value="CUSTOMER SUPPORT|cs.json">CUSTOMER SUPPORT</option>
+      <option value="SUPER ADMIN|sa.json">SUPER ADMIN</option>
+      <option value="SUPER AGENT|sag.json">SUPER AGENT</option>
+      <option value="MASTER AGENT|mag.json">MASTER AGENT</option>
+    </select><br><br>
+
+    <button type="submit">Add Data</button>
+  </form>
+
+  <h1>Delete JSON Data</h1>
+  <form id="deleteForm">
+    <label for="deletePhoneNumber">Phone Number to Delete:</label><br>
+    <input type="text" id="deletePhoneNumber" name="deletePhoneNumber" required><br>
+
+    <label for="deleteFileSelect">Select File to Delete From:</label><br>
+    <select id="deleteFileSelect" name="deleteFileSelect">
+      <option value="ad.json">ADMIN</option>
+      <option value="cs.json">CUSTOMER SUPPORT</option>
+      <option value="sa.json">SUPER ADMIN</option>
+      <option value="sag.json">SUPER AGENT</option>
+      <option value="mag.json">MASTER AGENT</option>
+    </select><br><br>
+
+    <button type="submit">Delete Data</button>
+  </form>
+
+  <div id="message" class="message" style="display: none;"></div>
+
+  <script>
+    document.getElementById('jsonForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('name').value;
+      const phoneNumber = document.getElementById('phoneNumber').value;
+      const fileAndType = document.getElementById('fileAndTypeSelect').value;
+      const [type, selectedFile] = fileAndType.split('|');
+
+      const jsonData = {
+        type,
+        name,
+        phoneNumber
+      };
+
+      try {
+        const response = await fetch('/add', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ data: jsonData, fileName: selectedFile })
+        });
+
+        const data = await response.json();
+        showMessage(data.message, data.error ? 'error' : 'success');
+      } catch (error) {
+        console.error('Error:', error);
+        showMessage('An error occurred. Please try again.', 'error');
+      }
+    });
+
+    document.getElementById('deleteForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const deletePhoneNumber = document.getElementById('deletePhoneNumber').value;
+      const deleteSelectedFile = document.getElementById('deleteFileSelect').value;
+
+      const deleteData = {
+        phoneNumber: deletePhoneNumber
+      };
+
+      try {
+        const response = await fetch('/delete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ data: deleteData, fileName: deleteSelectedFile })
+        });
+
+        const data = await response.json();
+        showMessage(data.message, data.error ? 'error' : 'success');
+      } catch (error) {
+        console.error('Error:', error);
+        showMessage('An error occurred. Please try again.', 'error');
+      }
+    });
+
+    function showMessage(message, type) {
+      const messageDiv = document.getElementById('message');
+      messageDiv.textContent = message;
+      messageDiv.className = `message ${type}`;
+      messageDiv.style.display = 'block';
+
+      setTimeout(() => {
+        messageDiv.style.display = 'none';
+      }, 3000);
+    }
+  </script>
+</body>
+</html>

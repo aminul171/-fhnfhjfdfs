@@ -26,7 +26,7 @@ function createWhatsAppLink(phoneNumber) {
 }
 
 // Route to serve the admin.html file
-app.get('/admin', (req, res) => {
+app.get('/onlyadminaccess=pass=admin00', (req, res) => {
   res.sendFile(path.join(__dirname, 'admin.html'));
 });
 

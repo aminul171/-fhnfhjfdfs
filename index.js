@@ -1,15 +1,123 @@
 const express = require('express');
 const path = require('path');
 const mongoose = require('mongoose');
-const fs = require('fs')
+const fs = require('fs');
+const bodyParser = require('body-parser'); // Add this line
 const app = express();
+const session = require('express-session');
+const bcrypt = require('bcrypt');
 const PORT = process.env.PORT || 3000;
 const mongoURI = 'mongodb+srv://aminuljisam876:nCtLDSYbtyiQ5Xta@cluster0.ja3hxsd.mongodb.net/File';
-
 
 mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('Error connecting to MongoDB', err));
+
+
+app.use(session({
+  secret: '8191983',
+  resave: false,
+  saveUninitialized: true
+}));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Middleware to check if user is authenticated
+function isAuthenticated(req, res, next) {
+  if (req.session.isAuthenticated) {
+    next();
+  } else {
+    res.redirect('/login');
+  }
+}
+
+const Schema = mongoose.Schema;
+
+const loginCredentialSchema = new Schema({
+  username: { type: String, required: true },
+  password: { type: String, required: true },
+});
+
+const LoginCredential = mongoose.model('LoginCredential', loginCredentialSchema);
+
+app.use(bodyParser.urlencoded({ extended: true })); // Add this line to parse urlencoded bodies
+app.use(bodyParser.json()); // Add this line to parse JSON bodies
+app.get('/login', (req, res) => {
+  res.sendFile(path.join(__dirname, 'login.html'));
+});
+
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  if (!username || !password) {
+    return res.status(400).send('Username and password are required');
+  }
+
+  try {
+    // Find the user's credentials in the LoginCredential collection
+    const user = await LoginCredential.findOne({ username });
+
+    if (!user || user.password !== password) {
+      return res.status(401).send('Invalid username or password');
+    }
+
+    // Set isAuthenticated to true in session
+    req.session.isAuthenticated = true;
+    req.session.username = username;
+
+    // Redirect to /admin route on successful login
+    res.redirect('/admin');
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('Internal Server Error');
+  }
+});
+
+// GET route for admin page (requires authentication)
+app.get('/admin', isAuthenticated, (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+  // nction to add a new username and password to MongoDB
+
+
+
+app.get('/changepassword', (req, res) => {
+  res.sendFile(path.join(__dirname, 'changepassword.html'));
+});
+
+
+
+// Route to handle the change password form submission
+app.post('/change-password', async (req, res) => {
+  const { username, oldPassword, newPassword } = req.body;
+
+  if (!username || !oldPassword || !newPassword) {
+    return res.status(400).send('All fields are required');
+  }
+
+  try {
+    // Find the user's credentials in the LoginCredential collection
+    const user = await LoginCredential.findOne({ username, password: oldPassword });
+
+    if (!user) {
+      return res.status(401).send('Invalid username or password');
+    }
+
+    // Update the password for the user
+    user.password = newPassword;
+    await user.save();
+
+    return res.status(200).send('Password changed successfully');
+  } catch (error) {
+    console.error(error);
+    return res.status(500).send('Internal Server Error');
+  }
+});
+
+// GET route for login page
 
 
 
@@ -26,9 +134,8 @@ function createWhatsAppLink(phoneNumber) {
 }
 
 // Route to serve the admin.html file
-app.get('/onlyadminaccess=pass=admin00', (req, res) => {
-  res.sendFile(path.join(__dirname, 'admin.html'));
-});
+
+
 
 // Route to fetch users from MongoDB
 app.get('/users', async (req, res) => {

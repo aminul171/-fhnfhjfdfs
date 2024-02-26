@@ -168,6 +168,7 @@ app.post('/add', async (req, res) => {
     const newUser = new User({
       type,
       name,
+      phoneAppLink,
       phoneNumber
     });
 
@@ -218,6 +219,7 @@ app.post('/delete', async (req, res) => {
 const userSchema = new mongoose.Schema({
   type: String,
   name: String,
+  phoneAppLink: String,
   phoneNumber: String
 }, { collection: 'users' }); // Specify the collection name for users
 
